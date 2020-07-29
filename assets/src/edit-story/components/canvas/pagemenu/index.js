@@ -17,7 +17,7 @@
 /**
  * External dependencies
  */
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 import { useCallback } from 'react';
 import { useFeatures } from 'flagged';
 
@@ -29,6 +29,7 @@ import { __, sprintf } from '@wordpress/i18n';
 /**
  * Internal dependencies
  */
+import { STORY_ANIMATION_STATE } from '../../../../dashboard/constants';
 import { useStory, useHistory, useConfig } from '../../../app';
 import { createPage, duplicatePage } from '../../../elements';
 import {
@@ -36,6 +37,8 @@ import {
   Duplicate,
   UndoAlt as LeftArrow,
   RedoAlt as RightArrow,
+  PlayCircular,
+  StopCircular,
   AddPage,
   LayoutHelper,
   Text,
@@ -43,12 +46,10 @@ import {
 import WithTooltip from '../../tooltip';
 import useCanvas from '../useCanvas';
 
-const HEIGHT = 28;
-
 const Wrapper = styled.div`
   display: flex;
   align-items: flex-end;
-  height: ${20 + HEIGHT}px;
+  margin-top: 8px;
 `;
 
 const Box = styled.div`
@@ -57,7 +58,6 @@ const Box = styled.div`
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  height: ${HEIGHT}px;
   width: 100%;
 `;
 
@@ -72,18 +72,19 @@ const PageCount = styled.div`
 const Options = styled.div`
   display: flex;
   align-items: center;
+  width: 100%;
   color: ${({ theme }) => theme.colors.fg.v2};
 `;
 
 const Divider = styled.span`
   background-color: ${({ theme }) => theme.colors.fg.v1};
   opacity: 0.3;
-  height: ${HEIGHT}px;
+  height: 20px;
   width: 1px;
 `;
 
 const Space = styled.div`
-  width: ${({ isDouble }) => (isDouble ? 20 : 10)}px;
+  width: ${({ isDouble }) => (isDouble ? 16 : 8)}px;
 `;
 
 const Icon = styled.button`
@@ -91,19 +92,21 @@ const Icon = styled.button`
   background: transparent;
   border: 0;
   padding: 0;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: ${({ theme }) => theme.colors.fg.v1};
 
   ${({ disabled }) =>
     disabled &&
-    `
-	opacity: .3;
-	pointer-events: none;
-	`}
+    css`
+      opacity: 0.3;
+      pointer-events: none;
+    `}
 
   svg {
-    width: 28px;
-    height: 28px;
+    width: 22px;
+    height: 22px;
     display: block;
   }
 `;
@@ -118,16 +121,22 @@ function PageMenu() {
     currentPage,
     deleteCurrentPage,
     addPage,
+    animationState,
+    updateAnimationState,
+    hasAnimations,
   } = useStory(
     ({
-      state: { currentPageNumber, currentPage },
-      actions: { deleteCurrentPage, addPage },
+      state: { currentPageNumber, currentPage, animationState },
+      actions: { deleteCurrentPage, addPage, updateAnimationState },
     }) => {
       return {
         currentPageNumber,
         currentPage,
         deleteCurrentPage,
         addPage,
+        animationState,
+        updateAnimationState,
+        hasAnimations: currentPage?.animations?.length > 0,
       };
     }
   );
@@ -135,7 +144,7 @@ function PageMenu() {
     pageSize: state.state.pageSize,
   }));
   const { isRTL } = useConfig();
-  const { showTextMagicAndHelperMode } = useFeatures();
+  const { showTextMagicAndHelperMode, enableAnimation } = useFeatures();
 
   const handleDeletePage = useCallback(() => deleteCurrentPage(), [
     deleteCurrentPage,
@@ -153,6 +162,17 @@ function PageMenu() {
   const handleUndo = useCallback(() => undo(), [undo]);
 
   const handleRedo = useCallback(() => redo(), [redo]);
+
+  const toggleAnimationState = useCallback(
+    () =>
+      updateAnimationState({
+        animationState:
+          animationState === STORY_ANIMATION_STATE.PLAYING
+            ? STORY_ANIMATION_STATE.RESET
+            : STORY_ANIMATION_STATE.PLAYING,
+      }),
+    [animationState, updateAnimationState]
+  );
 
   if (!currentPage) {
     return null;
@@ -222,6 +242,35 @@ function PageMenu() {
               {isRTL ? <LeftArrow /> : <RightArrow />}
             </Icon>
           </WithTooltip>
+          <Space />
+          {enableAnimation &&
+            (animationState === STORY_ANIMATION_STATE.PLAYING ? (
+              <WithTooltip
+                style={{ marginLeft: 'auto' }}
+                title={__('Stop', 'web-stories')}
+              >
+                <Icon
+                  onClick={toggleAnimationState}
+                  disabled={!hasAnimations}
+                  aria-label={__('Stop Page Animations', 'web-stories')}
+                >
+                  <StopCircular />
+                </Icon>
+              </WithTooltip>
+            ) : (
+              <WithTooltip
+                style={{ marginLeft: 'auto' }}
+                title={__('Play', 'web-stories')}
+              >
+                <Icon
+                  onClick={toggleAnimationState}
+                  disabled={!hasAnimations}
+                  aria-label={__('Play Page Animations', 'web-stories')}
+                >
+                  <PlayCircular />
+                </Icon>
+              </WithTooltip>
+            ))}
         </Options>
         {showTextMagicAndHelperMode && (
           <Options>
